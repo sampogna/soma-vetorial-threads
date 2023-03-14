@@ -8,7 +8,7 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS 1
 
 #define NUM_THREADS 10
-#define ARR_LENGTH 100
+#define ARR_LENGTH 100000
 
 #include <semaphore.h>
 #include <pthread.h>
@@ -19,76 +19,54 @@
 pthread_mutex_t  mutex;
 
 typedef struct arrObj {
-	int*  currentPosition;
-	int*  eachArrSum;
-	int*  totalSum;
-	int*  currentThread;
-	int*  realArr;
+	int			currentPosition;
+	long long	totalSum;
+	int			currentThread;
+	int			eachArrSum[NUM_THREADS];
+	int			realArr[ARR_LENGTH];
 } ArrObj;
 
 
 
-void* SumArr(void* arg, int* id_thread) {
-	ArrObj* obj = (ArrObj *) arg;
-	printf("current thread: %d\n", obj->currentThread);
+void* SumArr(void* arg) {
+	ArrObj* obj = (ArrObj*) arg;
 
-
-	while (obj->currentPosition <= ARR_LENGTH) {
-		
-	}
-
-
-	////int* id = (int *) id_thread;
-
-	//pthread_mutex_lock(&mutex);
-	////Somar ao total
-	//obj->totalSum += obj->realArr[obj->currentPosition];
-
-	////Incrementar posicao
-	//obj->currentPosition += 1;
-
-	////Incrementar numero de operacoes da thread
-	//obj->eachArrSum[obj->currentThread] += 1;
-	//pthread_mutex_unlock(&mutex);
-
+	while (obj->currentPosition < ARR_LENGTH) {
+		pthread_mutex_lock(&mutex);
+		if (obj->currentPosition < ARR_LENGTH) {
+			(long long)obj->totalSum += obj->realArr[(int)obj->currentPosition];
+			(int)obj->eachArrSum[(int)obj->currentThread]++;
+			obj->currentPosition++;
+		}
+		pthread_mutex_unlock(&mutex);
+	};
 	return 0;
 }
 
-void printArr(int* arr, int length) {
-	int i;
-	printf("\n");
-	for (i = 0; i < length; i++)
-		printf("%d, ", arr[i]);
-}
-
-int main(int argc, char* argv[]) {
+int main() {
 
 	pthread_t threads[NUM_THREADS];
 	int rc, t, i, c;
+	ArrObj obj;
+	
 
 	int arr[ARR_LENGTH];
 	int counter = 1;
 	for (i = 0; i < ARR_LENGTH; i++) {
-		arr[i] = counter;
+		obj.realArr[i] = counter;
 		counter++;
 	}
+	obj.currentPosition = 0;
+	obj.totalSum = 0;
 
-	//printArr(arr, ARR_LENGTH);
-
-	ArrObj obj;
-	//obj.currentPosition = -1; //Posi
-	obj.eachArrSum = malloc(NUM_THREADS * sizeof(int));
-	obj.totalSum = (int *)0;
-	obj.realArr = arr;
-
-	//Mutex section
+	//Initializing mutex
 	pthread_mutex_init(&mutex, NULL);
 
 	for (t = 0; t < NUM_THREADS; t++) {
 		//Assigning id for current thred being created
 		obj.currentThread = t;
-		obj.eachArrSum[t] = 0; //Zerando contador de cada thread
-		rc = pthread_create(&threads[t], NULL, SumArr, &obj, &t);
+		obj.eachArrSum[t] = 0; //Thread work number starts with zero
+		rc = pthread_create(&threads[t], NULL, (void*)SumArr, &obj);
 
 	}
 	//Esperando as threads terminarem
@@ -97,13 +75,10 @@ int main(int argc, char* argv[]) {
 
 	}
 
-	//printf("\nTotal sum is: %d", obj.currentPosition);
+	for (t = 0; t < NUM_THREADS; t++)
+		printf("\nO trabalho da thread #%d foi de %d somas [%.2f%%]", t, obj.eachArrSum[t], ( ((float) obj.eachArrSum[t] * 100)/ ((float) ARR_LENGTH * 100) * 100));
 
-	printArr(obj.eachArrSum, NUM_THREADS);
-
-
-	//for (t = 0; t < NUM_THREADS; t++)
-	//	pthread_join(threads[i], NULL);
+	printf("\n\nA soma total eh: %lld", obj.totalSum);
 
 	return 0;
 }
